@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import TaskForm from './components/TaskForm';
+import TaskList from './components/TaskList';
 
 function App() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [newItem, setNewItem] = useState('');
+  const [sortOrder, setSortOrder] = useState('created_desc');
 
   useEffect(() => {
     fetchData();
@@ -29,47 +31,144 @@ function App() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!newItem.trim()) return;
-
+  const handleAddTask = async ({ name, description, due_date }) => {
     try {
       const response = await fetch('/api/items', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ name: newItem }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description, due_date }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to add item');
+        throw new Error('Failed to add task');
       }
 
       const result = await response.json();
-      setData([...data, result]);
-      setNewItem('');
+      setData((prev) => [result, ...prev]);
+      setError(null);
     } catch (err) {
-      setError('Error adding item: ' + err.message);
-      console.error('Error adding item:', err);
+      setError('Error adding task: ' + err.message);
+      console.error('Error adding task:', err);
     }
   };
 
-  const handleDelete = async (itemId) => {
+  const handleEditTask = async (itemId, changes) => {
     try {
       const response = await fetch(`/api/items/${itemId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(changes),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update task');
+      }
+
+      const updated = await response.json();
+      setData((prev) => prev.map((item) => (item.id === itemId ? updated : item)));
+      setError(null);
+    } catch (err) {
+      setError('Error updating task: ' + err.message);
+      console.error('Error updating task:', err);
+    }
+  };
+
+  const handleDeleteTask = async (itemId) => {
+    try {
+      const response = await fetch(`/api/items/${itemId}`, { method: 'DELETE' });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete task');
+      }
+
+      setData((prev) => prev.filter((item) => item.id !== itemId));
+      setError(null);
+    } catch (err) {
+      setError('Error deleting task: ' + err.message);
+      console.error('Error deleting task:', err);
+    }
+  };
+
+  const handleAddSubTask = async (parentId, name) => {
+    try {
+      const response = await fetch(`/api/items/${parentId}/subtasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add sub-task');
+      }
+
+      const newSubTask = await response.json();
+      setData((prev) =>
+        prev.map((item) =>
+          item.id === parentId
+            ? { ...item, sub_tasks: [...(item.sub_tasks || []), newSubTask] }
+            : item
+        )
+      );
+      setError(null);
+    } catch (err) {
+      setError('Error adding sub-task: ' + err.message);
+      console.error('Error adding sub-task:', err);
+    }
+  };
+
+  const handleUpdateSubTask = async (parentId, subTaskId, changes) => {
+    try {
+      const response = await fetch(`/api/items/${parentId}/subtasks/${subTaskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(changes),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update sub-task');
+      }
+
+      const updated = await response.json();
+      setData((prev) =>
+        prev.map((item) =>
+          item.id === parentId
+            ? {
+                ...item,
+                sub_tasks: item.sub_tasks.map((st) =>
+                  st.id === subTaskId ? updated : st
+                ),
+              }
+            : item
+        )
+      );
+      setError(null);
+    } catch (err) {
+      setError('Error updating sub-task: ' + err.message);
+      console.error('Error updating sub-task:', err);
+    }
+  };
+
+  const handleDeleteSubTask = async (parentId, subTaskId) => {
+    try {
+      const response = await fetch(`/api/items/${parentId}/subtasks/${subTaskId}`, {
         method: 'DELETE',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete item');
+        throw new Error('Failed to delete sub-task');
       }
 
-      setData(data.filter(item => item.id !== itemId));
+      setData((prev) =>
+        prev.map((item) =>
+          item.id === parentId
+            ? { ...item, sub_tasks: item.sub_tasks.filter((st) => st.id !== subTaskId) }
+            : item
+        )
+      );
       setError(null);
     } catch (err) {
-      setError('Error deleting item: ' + err.message);
-      console.error('Error deleting item:', err);
+      setError('Error deleting sub-task: ' + err.message);
+      console.error('Error deleting sub-task:', err);
     }
   };
 
@@ -82,41 +181,25 @@ function App() {
 
       <main>
         <section className="add-item-section">
-          <h2>Add New Item</h2>
-          <form onSubmit={handleSubmit}>
-            <input
-              type="text"
-              value={newItem}
-              onChange={(e) => setNewItem(e.target.value)}
-              placeholder="Enter item name"
-            />
-            <button type="submit">Add Item</button>
-          </form>
+          <h2>Add New Task</h2>
+          <TaskForm onSubmit={handleAddTask} />
         </section>
 
         <section className="items-section">
-          <h2>Items from Database</h2>
+          <h2>Tasks</h2>
           {loading && <p>Loading data...</p>}
           {error && <p className="error">{error}</p>}
-          {!loading && !error && (
-            <ul>
-              {data.length > 0 ? (
-                data.map((item) => (
-                  <li key={item.id}>
-                    <span>{item.name}</span>
-                    <button 
-                      onClick={() => handleDelete(item.id)}
-                      className="delete-btn"
-                      type="button"
-                    >
-                      Delete
-                    </button>
-                  </li>
-                ))
-              ) : (
-                <p>No items found. Add some!</p>
-              )}
-            </ul>
+          {!loading && (
+            <TaskList
+              items={data}
+              sortOrder={sortOrder}
+              onSortChange={setSortOrder}
+              onEdit={handleEditTask}
+              onDelete={handleDeleteTask}
+              onAddSubTask={handleAddSubTask}
+              onUpdateSubTask={handleUpdateSubTask}
+              onDeleteSubTask={handleDeleteSubTask}
+            />
           )}
         </section>
       </main>
