@@ -67,6 +67,18 @@ app.get('/', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Backend server is running' });
 });
 
+// ── Reset (E2E testing only) ──────────────────────────────────────────────────
+
+app.post('/api/reset', (req, res) => {
+  try {
+    db.exec('DELETE FROM items');
+    res.status(200).json({ message: 'Database reset' });
+  } catch (error) {
+    console.error('Error resetting database:', error);
+    res.status(500).json({ error: 'Failed to reset database' });
+  }
+});
+
 // ── Items ─────────────────────────────────────────────────────────────────────
 
 app.get('/api/items', (req, res) => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import TaskForm from './TaskForm';
 import SubTaskList from './SubTaskList';
 
@@ -6,6 +6,16 @@ function TaskItem({ item, onEdit, onDelete, onAddSubTask, onUpdateSubTask, onDel
   const [isEditing, setIsEditing] = useState(false);
   const [showSubTasks, setShowSubTasks] = useState(false);
   const [promptComplete, setPromptComplete] = useState(false);
+
+  // Auto-reveal sub-tasks panel when a new sub-task is added
+  const prevSubTaskLen = useRef(item.sub_tasks ? item.sub_tasks.length : 0);
+  useEffect(() => {
+    const len = item.sub_tasks ? item.sub_tasks.length : 0;
+    if (len > prevSubTaskLen.current) {
+      setShowSubTasks(true);
+    }
+    prevSubTaskLen.current = len;
+  }, [item.sub_tasks]);
 
   const handleEditSubmit = (values) => {
     onEdit(item.id, values);

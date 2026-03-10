@@ -20,7 +20,7 @@ test.describe('Edit task', () => {
 
   test('cancels an edit without saving changes', async ({ page }) => {
     await todoPage.clickEditOnTask('Original Task Name');
-    await page.getByPlaceholder('Task name').fill('Should Not Save');
+    await page.locator('.task-edit').getByPlaceholder('Task name').fill('Should Not Save');
     await todoPage.cancelEdit();
     await expect(page.getByText('Original Task Name', { exact: true })).toBeVisible();
     await expect(page.getByText('Should Not Save', { exact: true })).not.toBeVisible();
@@ -31,8 +31,8 @@ test.describe('Edit task', () => {
     await expect(page.getByText('Due: 2026-06-01')).toBeVisible();
 
     await todoPage.clickEditOnTask('Task with date');
-    await page.getByTitle('Due date (optional)').fill('2026-09-15');
-    await page.getByRole('button', { name: 'Save' }).click();
+    await page.locator('.task-edit').getByTitle('Due date (optional)').fill('2026-09-15');
+    await page.locator('.task-edit').getByRole('button', { name: 'Save' }).click();
 
     await expect(page.getByText('Due: 2026-09-15')).toBeVisible();
   });

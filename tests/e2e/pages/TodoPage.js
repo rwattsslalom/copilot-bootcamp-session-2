@@ -6,6 +6,7 @@ class TodoPage {
   // ── Navigation ─────────────────────────────────────────────────
 
   async goto() {
+    await this.page.request.post('http://localhost:3030/api/reset');
     await this.page.goto('/');
   }
 
@@ -61,8 +62,9 @@ class TodoPage {
   }
 
   async saveEdit(newName) {
-    await this.page.getByPlaceholder('Task name').fill(newName);
-    await this.page.getByRole('button', { name: 'Save' }).click();
+    const editForm = this.page.locator('.task-edit');
+    await editForm.getByPlaceholder('Task name').fill(newName);
+    await editForm.getByRole('button', { name: 'Save' }).click();
   }
 
   async cancelEdit() {
@@ -80,20 +82,40 @@ class TodoPage {
   }
 
   async addSubTask(parentName, subTaskName) {
-    const taskLi = this.page.locator('li.task-item', { hasText: parentName });
+    const taskLi = this.page.locator('li.task-item', { hasText: parentName }).first();
+    // If sub-tasks panel is closed (toggle shows ▼), open it first
+    const closedToggle = taskLi.getByRole('button', { name: /Sub-tasks.*▼/ });
+    if (await closedToggle.isVisible()) {
+      await closedToggle.click();
+    }
     await taskLi.getByRole('button', { name: '+ Add sub-task' }).click();
     await taskLi.getByPlaceholder('Sub-task name').fill(subTaskName);
     await taskLi.getByRole('button', { name: 'Add' }).click();
   }
 
   async completeSubTask(parentName, subTaskName) {
-    const taskLi = this.page.locator('li.task-item', { hasText: parentName });
+    const taskLi = this.page.locator('li.task-item', { hasText: parentName }).first();
+    // If sub-tasks panel is closed (toggle shows ▼), open it first
+    const closedToggle = taskLi.getByRole('button', { name: /Sub-tasks.*▼/ });
+    if (await closedToggle.isVisible()) {
+      await closedToggle.click();
+    }
     const subTaskLi = taskLi.locator('li.sub-task-item', { hasText: subTaskName });
-    await subTaskLi.getByRole('checkbox').check();
+    // Use click() rather than check() — React controlled checkboxes revert to their
+    // prop value before the async API returns, so check() reports a spurious failure.
+    await subTaskLi.getByRole('checkbox').click();
+    // Wait for the backend state to propagate back so subsequent actions see the
+    // correct completed state (e.g. the "all done" prompt fires correctly).
+    await taskLi.locator('li.sub-task-item.completed', { hasText: subTaskName }).waitFor();
   }
 
   async deleteSubTask(parentName, subTaskName) {
-    const taskLi = this.page.locator('li.task-item', { hasText: parentName });
+    const taskLi = this.page.locator('li.task-item', { hasText: parentName }).first();
+    // If sub-tasks panel is closed (toggle shows ▼), open it first
+    const closedToggle = taskLi.getByRole('button', { name: /Sub-tasks.*▼/ });
+    if (await closedToggle.isVisible()) {
+      await closedToggle.click();
+    }
     const subTaskLi = taskLi.locator('li.sub-task-item', { hasText: subTaskName });
     await subTaskLi.getByRole('button', { name: 'Delete' }).click();
   }
